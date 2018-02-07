@@ -1,5 +1,8 @@
 package com.karen.weatherinfo;
 
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.DefaultItemAnimator;
@@ -20,6 +23,7 @@ import com.karen.weatherinfo.model.Country;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -42,7 +46,7 @@ public class MainActivity extends AppCompatActivity {
         initViews();
         initAdapter();
         fillCountries();
-
+        checkPermission();
     }
 
     private void initViews() {
@@ -77,7 +81,15 @@ public class MainActivity extends AppCompatActivity {
         adapter.notifyDataSetChanged();
     }
 
-    private void sendRequest(final String country) {
+    private void checkPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (checkSelfPermission(Manifest.permission.INTERNET) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{Manifest.permission.INTERNET}, 1);
+            }
+        }
+    }
+
+    private void sendRequest(String country) {
         String stringUrl = "http://api.openweathermap.org/data/2.5/weather?q=" + country + API_KEY;
         RequestQueue queue = Volley.newRequestQueue(this);
 
@@ -86,11 +98,10 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void onResponse(JSONObject response) {
                         try {
-                            Log.d(TAG, String.valueOf(response.getJSONObject("main").getString("temp")));
                             mCountry.setText("Country " + response.getString("name"));
-                            temp.setText("temp " + response.getJSONObject("main").getString("temp"));
-                            pressure.setText("pressure " + response.getJSONObject("main").getString("pressure"));
-                            humidity.setText("humidity " + response.getJSONObject("main").getString("humidity"));
+                            temp.setText("Temperature " + new DecimalFormat("##.#").format(parseToCelsius(response)) + " °C");
+                            pressure.setText("Pressure " + response.getJSONObject("main").getString("pressure") + " hPa");
+                            humidity.setText("Humidity " + response.getJSONObject("main").getString("humidity") + " %");
                         } catch (JSONException e) {
                             e.printStackTrace();
                         }
@@ -98,11 +109,15 @@ public class MainActivity extends AppCompatActivity {
                 }, new Response.ErrorListener() {
                     @Override
                     public void onErrorResponse(VolleyError error) {
-
+                        mCountry.setText("ERROR " + error.getMessage());
                     }
                 });
 
         queue.add(jsonObjectRequest);
+    }
+
+    private float parseToCelsius(JSONObject kelvin) throws JSONException {
+        return Float.parseFloat((kelvin.getJSONObject("main").getString("temp"))) - 273.15f;
     }
 
     CountryRecyclerViewAdapter.IOnClickItem onClickItem = new CountryRecyclerViewAdapter.IOnClickItem() {
